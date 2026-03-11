@@ -34,7 +34,8 @@ scripts/
 ### Core Components
 
 1. **`parseCsv(text, options?)`** — Character-by-character state machine parser
-2. **`ParseCsvOptions`** — Configuration interface (currently: `delimiter`)
+2. **`parseCsvWithHeader(text, options?)`** — Thin wrapper: treats row 0 as headers, returns `Record<string, string>[]`
+3. **`ParseCsvOptions`** — Configuration interface (currently: `delimiter`)
 
 ### Parsing Algorithm
 
@@ -59,6 +60,7 @@ interface ParseCsvOptions {
 }
 
 function parseCsv(text: string, options?: ParseCsvOptions): string[][];
+function parseCsvWithHeader(text: string, options?: ParseCsvOptions): Record<string, string>[];
 ```
 
 ## Commands
@@ -79,7 +81,7 @@ function parseCsv(text: string, options?: ParseCsvOptions): string[][];
 
 ## Test Coverage
 
-51 tests across 8 categories:
+57 tests across 9 categories:
 
 - Basic parsing (single/multiple rows and columns)
 - Empty/edge inputs (empty string, newlines, only commas)
@@ -89,13 +91,14 @@ function parseCsv(text: string, options?: ParseCsvOptions): string[][];
 - Whitespace handling (preserved, not trimmed)
 - Custom delimiters (semicolon, tab, pipe)
 - Real-world CSV (headers + data, European-style, TSV)
+- parseCsvWithHeader (basic, empty, header-only, ragged, custom delimiter, quoted headers)
 
 ## Design Decisions
 
 - **No `@std/csv`**: deliberate choice for npm portability
 - **In-memory only**: entire string parsed at once, no streaming
 - **No type coercion**: all values returned as strings
-- **No header parsing**: returns raw 2D array, consumer handles semantics
+- **Core parser has no header parsing**: returns raw 2D array; `parseCsvWithHeader` wraps it for convenience
 - **Whitespace preserved**: no automatic trimming of fields
 
 ## Modification Guide

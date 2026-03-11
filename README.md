@@ -24,6 +24,18 @@ Simple, reliable in-memory CSV parser. Returns a 2D array of strings.
 > perfectly fine. If you need to process huge files (hundreds of MB+),
 > consider a streaming parser instead.
 
+### Design philosophy
+
+This parser intentionally does **one thing**: it turns a CSV string into a
+`string[][]`. That's it. There is no header parsing, no column count validation,
+and no type coercion. Whether row 0 is a header is a semantic decision — it
+belongs to the consumer, not the parser. The same goes for ragged rows (real-world
+CSVs are often messy) and value types (numbers, dates, booleans).
+
+That said, mapping headers to record keys is such a common need that the package
+ships a thin convenience wrapper — `parseCsvWithHeader` — so you don't have to
+write it yourself.
+
 ## Installation
 
 ```bash
@@ -48,6 +60,22 @@ const rows = parseCsv(csv);
 //   ["name", "age", "city"],
 //   ["Alice", "30", "Bratislava"],
 //   ["Bob", "25", "London"],
+// ]
+```
+
+### Header mode
+
+```typescript
+import { parseCsvWithHeader } from "@marianmeres/parse-csv";
+
+const csv = `name,age,city
+Alice,30,Bratislava
+Bob,25,"London"`;
+
+const records = parseCsvWithHeader(csv);
+// [
+//   { name: "Alice", age: "30", city: "Bratislava" },
+//   { name: "Bob", age: "25", city: "London" },
 // ]
 ```
 
@@ -77,6 +105,20 @@ function parseCsv(text: string, options?: ParseCsvOptions): string[][];
 | `options.delimiter` | `string` | Field delimiter (default: `","`) |
 
 **Returns:** `string[][]` — array of rows, each row an array of field strings.
+
+### `parseCsvWithHeader(text, options?)`
+
+```typescript
+function parseCsvWithHeader(text: string, options?: ParseCsvOptions): Record<string, string>[];
+```
+
+Thin wrapper around `parseCsv`. Treats the first row as column headers and
+returns an array of objects keyed by those headers. Missing fields in shorter
+rows default to `""`.
+
+**Parameters:** Same as `parseCsv`.
+
+**Returns:** `Record<string, string>[]` — array of records keyed by header names.
 
 ## License
 

@@ -1,5 +1,5 @@
 import { assertEquals } from "@std/assert";
-import { parseCsv } from "../src/parse-csv.ts";
+import { parseCsv, parseCsvWithHeader } from "../src/parse-csv.ts";
 
 // ---------------------------------------------------------------------------
 // Basic parsing
@@ -296,4 +296,46 @@ Deno.test("consecutive quoted fields with newlines", () => {
 Deno.test("CRLF inside quoted field followed by LF row separator", () => {
 	const csv = '"a\r\nb"\nc';
 	assertEquals(parseCsv(csv), [["a\r\nb"], ["c"]]);
+});
+
+// ---------------------------------------------------------------------------
+// parseCsvWithHeader
+// ---------------------------------------------------------------------------
+
+Deno.test("parseCsvWithHeader: basic header + data rows", () => {
+	const csv = "name,age,city\nAlice,30,Prague\nBob,25,Brno";
+	assertEquals(parseCsvWithHeader(csv), [
+		{ name: "Alice", age: "30", city: "Prague" },
+		{ name: "Bob", age: "25", city: "Brno" },
+	]);
+});
+
+Deno.test("parseCsvWithHeader: empty input", () => {
+	assertEquals(parseCsvWithHeader(""), []);
+});
+
+Deno.test("parseCsvWithHeader: header only, no data rows", () => {
+	assertEquals(parseCsvWithHeader("name,age,city\n"), []);
+});
+
+Deno.test("parseCsvWithHeader: ragged rows (fewer fields than headers)", () => {
+	const csv = "a,b,c\n1,2\n4";
+	assertEquals(parseCsvWithHeader(csv), [
+		{ a: "1", b: "2", c: "" },
+		{ a: "4", b: "", c: "" },
+	]);
+});
+
+Deno.test("parseCsvWithHeader: custom delimiter", () => {
+	const csv = "name;age\nAlice;30";
+	assertEquals(parseCsvWithHeader(csv, { delimiter: ";" }), [
+		{ name: "Alice", age: "30" },
+	]);
+});
+
+Deno.test("parseCsvWithHeader: quoted header names", () => {
+	const csv = '"First Name","Last Name"\nJohn,Doe';
+	assertEquals(parseCsvWithHeader(csv), [
+		{ "First Name": "John", "Last Name": "Doe" },
+	]);
 });

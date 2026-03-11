@@ -110,3 +110,25 @@ export function parseCsv(
 
 	return rows;
 }
+
+/**
+ * Convenience wrapper around {@link parseCsv}. Treats the first row as
+ * column headers and returns an array of objects keyed by those headers.
+ *
+ * Missing fields in shorter rows default to `""`. If the input is empty
+ * or contains only a header row, an empty array is returned.
+ *
+ * @param text - Raw CSV string to parse.
+ * @param options - Optional configuration (e.g. custom delimiter).
+ * @returns Array of records keyed by header names.
+ */
+export function parseCsvWithHeader(
+	text: string,
+	options?: ParseCsvOptions,
+): Record<string, string>[] {
+	const [header, ...data] = parseCsv(text, options);
+	if (!header) return [];
+	return data.map((row) =>
+		Object.fromEntries(header.map((key, i) => [key, row[i] ?? ""]))
+	);
+}
