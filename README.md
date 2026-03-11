@@ -40,14 +40,14 @@ npm install @marianmeres/parse-csv
 import { parseCsv } from "@marianmeres/parse-csv";
 
 const csv = `name,age,city
-Alice,30,Prague
-Bob,25,"Brno"`;
+Alice,30,Bratislava
+Bob,25,"London"`;
 
 const rows = parseCsv(csv);
 // [
 //   ["name", "age", "city"],
-//   ["Alice", "30", "Prague"],
-//   ["Bob", "25", "Brno"],
+//   ["Alice", "30", "Bratislava"],
+//   ["Bob", "25", "London"],
 // ]
 ```
 
@@ -55,7 +55,7 @@ const rows = parseCsv(csv);
 
 ```typescript
 // European-style semicolon-separated
-const rows = parseCsv("name;age;city\nAlice;30;Prague", { delimiter: ";" });
+const rows = parseCsv("name;age;city\nAlice;30;Bratislava", { delimiter: ";" });
 
 // Tab-separated (TSV)
 const rows = parseCsv("col1\tcol2\nval1\tval2", { delimiter: "\t" });
