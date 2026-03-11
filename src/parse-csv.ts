@@ -20,6 +20,9 @@ export function parseCsv(
 	text: string,
 	options?: ParseCsvOptions,
 ): string[][] {
+	// Strip UTF-8 BOM if present (common in Excel exports).
+	text = text.replace(/^\uFEFF/, "");
+
 	const delimiter = options?.delimiter ?? ",";
 
 	const rows: string[][] = [];

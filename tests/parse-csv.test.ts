@@ -299,6 +299,19 @@ Deno.test("CRLF inside quoted field followed by LF row separator", () => {
 });
 
 // ---------------------------------------------------------------------------
+// UTF BOM handling
+// ---------------------------------------------------------------------------
+
+Deno.test("UTF-8 BOM is stripped from input", () => {
+	assertEquals(parseCsv("\uFEFFa,b,c"), [["a", "b", "c"]]);
+});
+
+Deno.test("parseCsvWithHeader: BOM does not corrupt the first header key", () => {
+	const csv = "\uFEFFname,age\nAlice,30";
+	assertEquals(parseCsvWithHeader(csv), [{ name: "Alice", age: "30" }]);
+});
+
+// ---------------------------------------------------------------------------
 // parseCsvWithHeader
 // ---------------------------------------------------------------------------
 

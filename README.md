@@ -11,6 +11,7 @@ Simple, reliable in-memory CSV parser. Returns a 2D array of strings.
 - Handles quoted fields, escaped quotes (`""`), and newlines within quotes
 - Supports both CRLF and LF line endings
 - Custom delimiter support (comma, semicolon, tab, pipe, etc.)
+- Automatically strips UTF-8 BOM (common in Excel exports)
 - Zero dependencies — fully portable to npm/Node.js
 - TypeScript, with full type definitions
 
