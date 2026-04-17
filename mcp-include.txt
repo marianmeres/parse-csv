@@ -1,1 +1,3 @@
-Simple, reliable in-memory CSV parser. Parses CSV text into a 2D string array or into records using header row, with support for quoted fields, custom delimiters, and mixed line endings.
+Simple, reliable in-memory CSV parser. Parses CSV text into a 2D string array or into 
+records using header row, with support for quoted fields, custom delimiters, and mixed 
+line endings.

@@ -1,4 +1,4 @@
-import { assertEquals } from "@std/assert";
+import { assertEquals, assertThrows } from "@std/assert";
 import { parseCsv, parseCsvWithHeader } from "../src/parse-csv.ts";
 
 // ---------------------------------------------------------------------------
@@ -157,11 +157,11 @@ Deno.test("spaces around fields are preserved (not trimmed)", () => {
 	assertEquals(parseCsv(" a , b , c "), [[" a ", " b ", " c "]]);
 });
 
-Deno.test("spaces before quote start quoted mode", () => {
-	// Space before opening quote is consumed as regular char, then
-	// the quote opens quoted mode — the result strips the outer quotes
-	// but keeps the leading space and content.
-	assertEquals(parseCsv(' "a" , "b" '), [[" a ", " b "]]);
+Deno.test("space before quote keeps field unquoted (RFC 4180)", () => {
+	// A `"` only opens quoted mode at the very start of a field. A leading
+	// space means we're no longer at field-start, so the quote is treated
+	// as a literal character and the whole run is preserved verbatim.
+	assertEquals(parseCsv(' "a" , "b" '), [[' "a" ', ' "b" ']]);
 });
 
 // ---------------------------------------------------------------------------
@@ -351,4 +351,177 @@ Deno.test("parseCsvWithHeader: quoted header names", () => {
 	assertEquals(parseCsvWithHeader(csv), [
 		{ "First Name": "John", "Last Name": "Doe" },
 	]);
+});
+
+// ---------------------------------------------------------------------------
+// Lone CR line endings
+// ---------------------------------------------------------------------------
+
+Deno.test("lone CR line endings", () => {
+	assertEquals(parseCsv("a\rb\rc"), [["a"], ["b"], ["c"]]);
+});
+
+Deno.test("lone CR mixed with LF and CRLF", () => {
+	assertEquals(parseCsv("a\rb\nc\r\nd"), [["a"], ["b"], ["c"], ["d"]]);
+});
+
+Deno.test("lone CR inside quoted field is preserved as literal", () => {
+	assertEquals(parseCsv('"a\rb",c'), [["a\rb", "c"]]);
+});
+
+// ---------------------------------------------------------------------------
+// Quote-at-field-start semantics (RFC 4180)
+// ---------------------------------------------------------------------------
+
+Deno.test("stray quote in unquoted field is preserved as literal", () => {
+	assertEquals(parseCsv('a"b,c"d'), [['a"b', 'c"d']]);
+});
+
+Deno.test("unquoted field ending in a bare quote preserves the quote", () => {
+	// Previously: the trailing `"` entered quoted mode and got silently
+	// consumed at EOF. Now it's literal content in an unquoted field.
+	assertEquals(parseCsv('a"'), [['a"']]);
+});
+
+// ---------------------------------------------------------------------------
+// Delimiter validation
+// ---------------------------------------------------------------------------
+
+Deno.test("delimiter validation: empty string throws", () => {
+	assertThrows(() => parseCsv("a,b,c", { delimiter: "" }), TypeError);
+});
+
+Deno.test("delimiter validation: multi-character throws", () => {
+	assertThrows(() => parseCsv("a||b", { delimiter: "||" }), TypeError);
+});
+
+Deno.test("delimiter validation: double quote throws", () => {
+	assertThrows(() => parseCsv("a,b", { delimiter: '"' }), TypeError);
+});
+
+Deno.test("delimiter validation: LF throws", () => {
+	assertThrows(() => parseCsv("a,b", { delimiter: "\n" }), TypeError);
+});
+
+Deno.test("delimiter validation: CR throws", () => {
+	assertThrows(() => parseCsv("a,b", { delimiter: "\r" }), TypeError);
+});
+
+// ---------------------------------------------------------------------------
+// Strict mode
+// ---------------------------------------------------------------------------
+
+Deno.test("non-strict: unterminated quoted field closes at EOF", () => {
+	assertEquals(parseCsv('"abc'), [["abc"]]);
+});
+
+Deno.test("strict: unterminated quoted field throws", () => {
+	assertThrows(
+		() => parseCsv('"abc', { strict: true }),
+		SyntaxError,
+		"unterminated",
+	);
+});
+
+Deno.test("non-strict: content after closing quote is concatenated", () => {
+	assertEquals(parseCsv('"hello"world,b'), [["helloworld", "b"]]);
+});
+
+Deno.test("strict: content after closing quote throws", () => {
+	assertThrows(
+		() => parseCsv('"hello"world,b', { strict: true }),
+		SyntaxError,
+		"closing quote",
+	);
+});
+
+Deno.test("non-strict: unescaped quote in unquoted field is preserved", () => {
+	assertEquals(parseCsv('a"b,c'), [['a"b', "c"]]);
+});
+
+Deno.test("strict: unescaped quote in unquoted field throws", () => {
+	assertThrows(
+		() => parseCsv('a"b,c', { strict: true }),
+		SyntaxError,
+		"unescaped",
+	);
+});
+
+Deno.test("strict: valid CSV parses identically to non-strict", () => {
+	const csv = 'a,b,c\n"quoted, value",2,3\n4,5,6\n';
+	assertEquals(
+		parseCsv(csv, { strict: true }),
+		parseCsv(csv),
+	);
+});
+
+// ---------------------------------------------------------------------------
+// parseCsvWithHeader: null-prototype records
+// ---------------------------------------------------------------------------
+
+Deno.test("parseCsvWithHeader: records have null prototype", () => {
+	const result = parseCsvWithHeader("a,b\n1,2");
+	assertEquals(Object.getPrototypeOf(result[0]), null);
+});
+
+Deno.test("parseCsvWithHeader: header names that shadow Object.prototype", () => {
+	// Header names like `toString` or `__proto__` become literal own
+	// properties; no inherited prototype methods leak through.
+	const result = parseCsvWithHeader("__proto__,toString,constructor\nx,y,z");
+	assertEquals(result[0]["__proto__"], "x");
+	assertEquals(result[0]["toString"], "y");
+	assertEquals(result[0]["constructor"], "z");
+});
+
+Deno.test("parseCsvWithHeader: records are JSON-serializable", () => {
+	const result = parseCsvWithHeader("a,b\n1,2");
+	assertEquals(JSON.stringify(result), '[{"a":"1","b":"2"}]');
+});
+
+// ---------------------------------------------------------------------------
+// parseCsvWithHeader: ragged rows and duplicate headers
+// ---------------------------------------------------------------------------
+
+Deno.test("parseCsvWithHeader: rows with more fields than header drop extras", () => {
+	// Non-strict: silently drop the overflow (backwards-compatible).
+	const result = parseCsvWithHeader("a,b\n1,2,3,4");
+	assertEquals(result, [{ a: "1", b: "2" }]);
+});
+
+Deno.test("parseCsvWithHeader strict: row with more fields than header throws", () => {
+	assertThrows(
+		() => parseCsvWithHeader("a,b\n1,2,3,4", { strict: true }),
+		SyntaxError,
+		"fields",
+	);
+});
+
+Deno.test("parseCsvWithHeader strict: row with fewer fields than header throws", () => {
+	assertThrows(
+		() => parseCsvWithHeader("a,b,c\n1,2", { strict: true }),
+		SyntaxError,
+		"fields",
+	);
+});
+
+Deno.test("parseCsvWithHeader: duplicate header names collapse (last wins) in non-strict", () => {
+	const result = parseCsvWithHeader("a,b,a\n1,2,3");
+	assertEquals(result, [{ a: "3", b: "2" }]);
+});
+
+Deno.test("parseCsvWithHeader strict: duplicate header names throw", () => {
+	assertThrows(
+		() => parseCsvWithHeader("a,b,a\n1,2,3", { strict: true }),
+		SyntaxError,
+		"duplicate",
+	);
+});
+
+Deno.test("parseCsvWithHeader: generic type narrows keys (compile-time only)", () => {
+	const result = parseCsvWithHeader<"name" | "age">(
+		"name,age\nAlice,30",
+	);
+	// Compile-time: `result[0].name` and `result[0].age` are typed `string`.
+	assertEquals(result[0].name, "Alice");
+	assertEquals(result[0].age, "30");
 });
